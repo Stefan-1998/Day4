@@ -2,63 +2,66 @@
 
 namespace ScratchCards;
 
+public class ScratchCard
+{
+    public readonly int Number;
+    public readonly IEnumerable<int> WinningNumbers;
+    public readonly IEnumerable<int> Lots;
+    public readonly int NumberOfWonLots;
+    public ScratchCard(string input)
+    {
+        Number = GetCardNumber(input.Split(':')[0]);
+        WinningNumbers = ReadOutLots(input.Split(':')[1].Split('|')[0]);
+        Lots = ReadOutLots(input.Split(':')[1].Split('|')[1]);
+        NumberOfWonLots = GetNumberOfWinningLots();
+    }
+    private int GetCardNumber(string input) => Int32.Parse(new Regex(@"\d+").Match(input).Value);
+    private IEnumerable<int> ReadOutLots(string input) => new Regex(@"\d+").Matches(input).Select(x => Int32.Parse(x.Value));
+    private int GetNumberOfWinningLots() => Lots.Where(x => WinningNumbers.Contains(x)).ToList().Count;
+
+    public int GetNumberOfPoints()
+    {
+        int numberOfWonLots = GetNumberOfWinningLots();
+        if (numberOfWonLots == 0) { return 0; }
+        if (numberOfWonLots == 1) { return 1; }
+        return (int)Math.Pow(2d, (double)numberOfWonLots - 1);
+    }
+}
 public static class Day4
 {
     static public int Part1(string inputPath)
     {
         if (!File.Exists(Path.GetFullPath(inputPath))) { throw new ArgumentException($"The path {inputPath} is invalid!"); }
-        var cards = File.ReadAllLines(inputPath).Select(x => ParseScratchCard(x)).ToList();
+        var cards = File.ReadAllLines(inputPath).Select(x => new ScratchCard(x)).ToList();
         int points = 0;
-        cards.ForEach(card => points += GetNumberOfPoints(GetWinningLots(card.WinningLots, card.YourLots)));
+        cards.ForEach(card => points += card.GetNumberOfPoints());
 
         return points;
     }
     static public int Part2(string inputPath)
     {
         if (!File.Exists(Path.GetFullPath(inputPath))) { throw new ArgumentException($"The path {inputPath} is invalid!"); }
-        var originalCards = File.ReadAllLines(inputPath).Select(x => ParseScratchCard(x)).ToList();
+        var originalCards = File.ReadAllLines(inputPath).Select(x => new ScratchCard(x)).ToList();
         int[] amountPerCardType = Enumerable.Repeat(1, originalCards.Count).ToArray();
-        var cardResults = GatherCardResults(originalCards);
 
+        return CalculateAmountOfOriginalAndCopiedCards(amountPerCardType, originalCards);
+    }
+    static private int CalculateAmountOfOriginalAndCopiedCards(int[] amountPerCardType, List<ScratchCard> originalCards)
+    {
         for (int i = 0; i < originalCards.Count; i++)
         {
-            for (int j = 0; j < amountPerCardType[i]; j++)
-            {
-                for (int k = 1; k < cardResults[i + 1] + 1; k++)
-                {
-                    amountPerCardType[i + k]++;
-                }
-            }
+            AddCopiesToFollowingCards(i, ref amountPerCardType, originalCards);
         }
         return amountPerCardType.Sum();
     }
-
-    static private Dictionary<int, int> GatherCardResults(List<(int Number, IEnumerable<int> WinningLots, IEnumerable<int> YourLots)> cards)
+    static private void AddCopiesToFollowingCards(int currentCardIndex, ref int[] amountPerCardType, List<ScratchCard> originalCards)
     {
-        Dictionary<int, int> cardResults = new();
-        foreach (var card in cards)
+        for (int j = 0; j < amountPerCardType[currentCardIndex]; j++)
         {
-            if (!cardResults.ContainsKey(card.Number)) { cardResults[card.Number] = GetWinningLots(card.WinningLots, card.YourLots).Count; }
+            for (int k = 1; k < originalCards[currentCardIndex].NumberOfWonLots + 1; k++)
+            {
+                amountPerCardType[currentCardIndex + k]++;
+            }
         }
-        return cardResults;
-    }
-    static private (int Number, IEnumerable<int> WinningLots, IEnumerable<int> YourLots) ParseScratchCard(string input)
-    {
-        var number = GetCardNumber(input.Split(':')[0]);
-        var winningLots = ReadOutLots(input.Split(':')[1].Split('|')[0]);
-        var yourLots = ReadOutLots(input.Split(':')[1].Split('|')[1]);
-        return (Number: number, WinningLots: winningLots, YourLots: yourLots);
-    }
-    private static int GetCardNumber(string input) => Int32.Parse(new Regex(@"\d+").Match(input).Value);
-
-    private static IEnumerable<int> ReadOutLots(string input) => new Regex(@"\d+").Matches(input).Select(x => Int32.Parse(x.Value));
-    private static List<int> GetWinningLots(IEnumerable<int> winningNumbers, IEnumerable<int> yourLots) => yourLots.Where(x => winningNumbers.Contains(x)).ToList();
-
-    private static int GetNumberOfPoints(List<int> winningLots)
-    {
-        int numberOfWonLots = winningLots.Count;
-        if (numberOfWonLots == 0) { return 0; }
-        if (numberOfWonLots == 1) { return 1; }
-        return (int)Math.Pow(2d, (double)numberOfWonLots - 1);
     }
 }
